@@ -6,6 +6,7 @@ from urllib.request import Request, urlopen
 from btcpy.structs.transaction import TxIn, Sequence, ScriptSig
 
 from pypeerassets.exceptions import InsufficientFunds
+from pypeerassets.network.network import Network
 from pypeerassets.provider.common import Provider
 
 
@@ -17,27 +18,21 @@ class Cryptoid(Provider):
     api_url_fmt = 'https://chainz.cryptoid.info/{net}/api.dws'
     explorer_url = 'https://chainz.cryptoid.info/explorer/'
 
-    def __init__(self, network: str) -> None:
-        """
-        : network = peercoin [ppc], peercoin-testnet [tppc] ...
-        """
-
-        self.net = self._netname(network)['short']
-        self.api_url = self.api_url_fmt.format(net=self.format_name(self.net))
-        if 'ppc' in self.net:
+    def __init__(self, network: Network) -> None:
+        super().__init__(network)
+        self.api_url = self.api_url_fmt.format(net=self.cryptoid_network_name)
+        if "peercoin" in self.network.name:
             getcontext().prec = 6  # set to six decimals if it's Peercoin
 
+    @property
+    def network(self) -> Network:
+        return super().network
 
-    @staticmethod
-    def format_name(net: str) -> str:
-        '''take care of specifics of cryptoid naming system'''
-
-        if net.startswith('t') or 'testnet' in net:
-            net = net[1:] + '-test'
-        else:
-            net = net
-
-        return net
+    @property
+    def cryptoid_network_name(self) -> str:
+        if self.network.is_testnet:
+            return self.network.short_name[1:] + "-test"
+        return self.network.short_name
 
     @staticmethod
     def get_url(url: str) -> dict:
@@ -62,7 +57,7 @@ class Cryptoid(Provider):
     def getblock(self, blockhash: str) -> dict:
         '''query block using <blockhash> as key.'''
 
-        query = self.explorer_url + 'block.raw.dws?coin={net}&hash={blockhash}'.format(net=self.format_name(self.net),
+        query = self.explorer_url + 'block.raw.dws?coin={net}&hash={blockhash}'.format(net=self.cryptoid_network_name,
                                                                                        blockhash=blockhash)
         return self.get_url(query)
 
@@ -110,7 +105,7 @@ class Cryptoid(Provider):
 
     def getrawtransaction(self, txid: str, decrypt=1) -> dict:
 
-        query = self.explorer_url + 'tx.raw.dws?coin={net}&id={txid}'.format(net=self.format_name(self.net),
+        query = self.explorer_url + 'tx.raw.dws?coin={net}&id={txid}'.format(net=self.cryptoid_network_name,
                                                                              txid=txid)
         if not decrypt:
             query += '&hex'
@@ -120,7 +115,7 @@ class Cryptoid(Provider):
 
     def listtransactions(self, address: str) -> list:
 
-        query = self.explorer_url + 'address.summary.dws?coin={net}&id={addr}'.format(net=self.format_name(self.net),
+        query = self.explorer_url + 'address.summary.dws?coin={net}&id={addr}'.format(net=self.cryptoid_network_name,
                                                                                       addr=address)
         resp = self.get_url(query)
         if resp:

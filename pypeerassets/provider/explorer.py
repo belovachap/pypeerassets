@@ -5,6 +5,7 @@ from urllib.request import urlopen
 from btcpy.structs.transaction import ScriptSig, Sequence, TxIn
 
 from pypeerassets.exceptions import InsufficientFunds, UnsupportedNetwork
+from pypeerassets.network.network import Network
 from pypeerassets.provider.common import Provider
 
 
@@ -12,20 +13,20 @@ class Explorer(Provider):
 
     '''API wrapper for https://explorer.peercoin.net blockexplorer.'''
 
-    def __init__(self, network: str) -> None:
-        """
-        : network = peercoin [ppc], peercoin-testnet [tppc] ...
-        """
-
-        self.net = self._netname(network)['short']
-        if 'ppc' not in self.net:
+    def __init__(self, network: Network) -> None:
+        super().__init__(network)
+        if self.network.name not in ("peercoin", "peercoin-testnet",):
             raise UnsupportedNetwork('This API only supports Peercoin.')
-            getcontext().prec = 6  # set to six decimals if it's Peercoin
+        getcontext().prec = 6  # set to six decimals if it's Peercoin
+
+    @property
+    def network(self) -> Network:
+        return super().network
 
     def api_fetch(self, command):
 
         apiurl = 'https://explorer.peercoin.net/api/'
-        if self.is_testnet:
+        if self.network.is_testnet:
             apiurl = 'https://testnet-explorer.peercoin.net/api/'
 
         response = urlopen(apiurl + command)
@@ -40,7 +41,7 @@ class Explorer(Provider):
     def ext_fetch(self, command):
 
         extapiurl = 'https://explorer.peercoin.net/ext/'
-        if self.is_testnet:
+        if self.network.is_testnet:
             extapiurl = 'https://testnet-explorer.peercoin.net/ext/'
 
         response = urlopen(extapiurl + command)

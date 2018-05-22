@@ -1,15 +1,31 @@
 
 '''transaction assembly/dissasembly'''
 
-from time import time
-from math import ceil
 from decimal import Decimal, getcontext
-getcontext().prec = 6
+from math import ceil
+from time import time
+
 from btcpy.structs.address import Address
-from btcpy.structs.transaction import TxOut, TxIn, Sequence, Locktime, Transaction, MutableTransaction
-from btcpy.structs.script import StackData, ScriptSig, NulldataScript, ScriptSig, ScriptPubKey
-from btcpy.structs.script import P2pkhScript, MultisigScript, P2shScript
-from .networks import net_query
+from btcpy.structs.script import (
+    MultisigScript,
+    NulldataScript,
+    P2pkhScript,
+    P2shScript,
+    StackData,
+    ScriptSig,
+    ScriptPubKey,
+)
+from btcpy.structs.transaction import (
+    Locktime,
+    MutableTransaction,
+    Sequence,
+    Transaction,
+    TxIn,
+    TxOut,
+)
+
+
+getcontext().prec = 6
 
 
 def calculate_tx_fee(tx_size: int) -> Decimal:

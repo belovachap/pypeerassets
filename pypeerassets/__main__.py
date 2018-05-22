@@ -1,29 +1,45 @@
+'''Contains main protocol logic like assembly of proof-of-timeline and parsing
+deck info.
+'''
 
-'''contains main protocol logic like assembly of proof-of-timeline and parsing deck info'''
-
-import concurrent.futures
 from binascii import unhexlify
-from typing import Union, Generator
-from .protocol import *
-from .provider import Provider, RpcNode
-from .pautils import (load_deck_p2th_into_local_node, 
-                      find_tx_sender,
-                      find_deck_spawns, tx_serialization_order,
-                      read_tx_opreturn, deck_issue_mode,
-                      issue_mode_to_enum, parse_deckspawn_metainfo,
-                      validate_deckspawn_p2th, validate_card_transfer_p2th,
-                      parse_card_transfer_metainfo, postprocess_card
-                      )
-#from .voting import *
-from .exceptions import *
-from .transactions import (nulldata_script, tx_output, p2pkh_script,
-                           find_parent_outputs, calculate_tx_fee,
-                           make_raw_transaction, TxOut,
-                           Transaction, MutableTransaction)
-from .pa_constants import param_query, params
-from .networks import net_query, networks
-from .kutil import Kutil
+import concurrent.futures
 from decimal import Decimal, getcontext
+from typing import Generator, Union
+
+from pypeerassets.exceptions import *
+from pypeerassets.kutil import Kutil
+from pypeerassets.networks import NETWORKS
+from pypeerassets.pa_constants import params, param_query
+from pypeerassets.pautils import (
+    deck_issue_mode,
+    find_deck_spawns,
+    find_tx_sender,
+    issue_mode_to_enum,
+    load_deck_p2th_into_local_node,
+    parse_card_transfer_metainfo,
+    parse_deckspawn_metainfo,
+    postprocess_card,
+    read_tx_opreturn,
+    tx_serialization_order,
+    validate_card_transfer_p2th,
+    validate_deckspawn_p2th,
+)
+from pypeerassets.protocol import *
+from pypeerassets.provider import Provider, RpcNode
+from pypeerassets.transactions import (
+    MutableTransaction,
+    Transaction,
+    TxOut,
+    calculate_tx_fee,
+    find_parent_outputs,
+    make_raw_transaction,
+    nulldata_script,
+    p2pkh_script,
+    tx_output,
+)
+
+
 getcontext().prec = 6
 
 
@@ -132,7 +148,7 @@ def deck_spawn(provider: Provider, key: Kutil, deck: Deck, inputs: dict, change_
        : change_address - address to send the change to
     '''
 
-    network_params = net_query(deck.network)
+    network = NETWORKS[deck.network]()
     pa_params = param_query(deck.network)
 
     if deck.production:
@@ -141,7 +157,7 @@ def deck_spawn(provider: Provider, key: Kutil, deck: Deck, inputs: dict, change_
         p2th_addr = pa_params.test_P2TH_addr
 
     #  first round of txn making is done by presuming minimal fee
-    change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee)
+    change_sum = Decimal(inputs['total'] - network.min_tx_fee - pa_params.P2TH_fee)
 
     txouts = [
         tx_output(value=pa_params.P2TH_fee, n=0, script=p2pkh_script(p2th_addr)),  # p2th
@@ -155,7 +171,7 @@ def deck_spawn(provider: Provider, key: Kutil, deck: Deck, inputs: dict, change_
     fee = Decimal(calculate_tx_fee(signed.size))
 
     # if 0.01 ppc fee is enough to cover the tx size
-    if Decimal(network_params.min_tx_fee) == fee:
+    if Decimal(network.min_tx_fee) == fee:
         return signed.hexlify()
 
     change_sum = Decimal(inputs['total'] - fee - pa_params.P2TH_fee)
@@ -240,7 +256,7 @@ def card_issue(provider: Provider, key: Kutil, deck: Deck,
        : change_address - address to send the change to
     '''
 
-    network_params = net_query(deck.network)
+    network = NETWORKS[deck.network]()
     pa_params = param_query(deck.network)
 
     txouts = [
@@ -254,7 +270,7 @@ def card_issue(provider: Provider, key: Kutil, deck: Deck,
         )
 
     #  first round of txn making is done by presuming minimal fee
-    change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee)
+    change_sum = Decimal(inputs['total'] - network.min_tx_fee - pa_params.P2TH_fee)
 
     txouts.append(
         tx_output(value=change_sum, n=len(txouts)+1, script=p2pkh_script(change_address))
@@ -266,7 +282,7 @@ def card_issue(provider: Provider, key: Kutil, deck: Deck,
     fee = Decimal(calculate_tx_fee(signed.size))
 
     # if 0.01 ppc fee is enough to cover the tx size
-    if Decimal(network_params.min_tx_fee) == calculate_tx_fee(signed.size):
+    if Decimal(network.min_tx_fee) == calculate_tx_fee(signed.size):
         return signed.hexlify()
 
     change_sum = Decimal(inputs['total'] - fee - pa_params.P2TH_fee)
@@ -288,7 +304,7 @@ def card_burn(provider: Provider, key: Kutil, deck: Deck,
 
     assert deck.issuer == card.receiver[0], {"error": "First recipient must be deck issuer."}
 
-    network_params = net_query(deck.network)
+    network = NETWORKS[deck.network]()
     pa_params = param_query(deck.network)
 
     txouts = [
@@ -298,7 +314,7 @@ def card_burn(provider: Provider, key: Kutil, deck: Deck,
     ]
 
     #  first round of txn making is done by presuming minimal fee
-    change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee)
+    change_sum = Decimal(inputs['total'] - network.min_tx_fee - pa_params.P2TH_fee)
 
     txouts.append(
         tx_output(value=change_sum, n=len(outputs)+1, script=p2pkh_script(change_address))
@@ -308,12 +324,12 @@ def card_burn(provider: Provider, key: Kutil, deck: Deck,
     signed = sign_transaction(provider, mutable_tx, key)
 
     # if 0.01 ppc fee is enough to cover the tx size
-    if network_params.min_tx_fee == calculate_tx_fee(signed.size):
+    if network.min_tx_fee == calculate_tx_fee(signed.size):
         return signed.hexlify()
 
     fee = Decimal(calculate_tx_fee(signed.size))
 
-    if Decimal(network_params.min_tx_fee) == fee:
+    if Decimal(network.min_tx_fee) == fee:
         return signed.hexlify()
 
     change_sum = Decimal(inputs['total'] - fee - pa_params.P2TH_fee)
@@ -330,7 +346,7 @@ def card_transfer(deck: Deck, card: CardTransfer, inputs: list, change_address: 
        : change_address - address to send the change to
        '''
 
-    network_params = net_query(deck.network)
+    network = NETWORKS[deck.network]()
     pa_params = param_query(deck.network)
 
     outputs = [
@@ -344,7 +360,7 @@ def card_transfer(deck: Deck, card: CardTransfer, inputs: list, change_address: 
         )
 
     #  first round of txn making is done by presuming minimal fee
-    change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee)
+    change_sum = Decimal(inputs['total'] - network.min_tx_fee - pa_params.P2TH_fee)
 
     outputs.append(
         tx_output(value=change_sum, n=len(outputs)+1, script=p2pkh_script(change_address))
@@ -354,12 +370,12 @@ def card_transfer(deck: Deck, card: CardTransfer, inputs: list, change_address: 
     signed = sign_transaction(provider, mutable_tx, key)
 
     # if 0.01 ppc fee is enough to cover the tx size
-    if network_params.min_tx_fee == calculate_tx_fee(signed.size):
+    if network.min_tx_fee == calculate_tx_fee(signed.size):
         return signed.hexlify()
 
     fee = Decimal(calculate_tx_fee(signed.size))
 
-    if Decimal(network_params.min_tx_fee) == fee:
+    if Decimal(network.min_tx_fee) == fee:
         return signed.hexlify()
 
     change_sum = Decimal(inputs['total'] - fee - pa_params.P2TH_fee)

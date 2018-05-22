@@ -1,36 +1,40 @@
-
-'''
-API wrapper for holytransaction blockexplorer.
-See https://peercoin.holytransaction.com/info for more information.
-'''
+from decimal import Decimal
 
 import requests
-from decimal import Decimal
-from .common import Provider
+
+from pypeerassets.network.network import Network
+from pypeerassets.provider.common import Provider
 
 
 class Holy(Provider):
 
-    """API wrapper for holytransaction.com blockexplorer,
-    it only implements queries relevant to peerassets.
-    Please note that holytransactions will only provide last 100k indexed
-    transactions for each address.
+    """API wrapper for holytransaction.com blockexplorer, it only implements
+    queries relevant to peerassets. Please note that holytransactions will only
+    provide last 100k indexed transactions for each address.
+    See https://peercoin.holytransaction.com/info for more information.
     """
 
-    def __init__(self, network: str):
-        """
-        : network = ppc, peercoin-testnet ...
-        """
+    api_methods = (
+        "getblock",
+        "getblockcount",
+        "getblockhash",
+        "getdifficulty",
+        "getrawtransaction",
+    )
+    ext_api_methods = (
+        "getaddress",
+        "getbalance",
+    )
 
-        self.net = self._netname(network)['long']
-        self.api = "https://{network}.holytransaction.com/api/".format(
-                   network=self._netname(network)['long'])
-        self.ext_api = "https://{network}.holytransaction.com/ext/".format(
-                       network=self._netname(network)['long'])
-        self.api_methods = ("getdifficulty", "getrawtransaction",
-                           "getblockcount", "getblockhash", "getblock")
-        self.ext_api_methods = ("getaddress", "getbalance")
+    def __init__(self, network: Network) -> None:
+        super().__init__(network)
+        self.api = "https://{network}.holytransaction.com/api/".format(network=self.network.name)
+        self.ext_api = "https://{network}.holytransaction.com/ext/".format(network=self.network.name)
         self.api_session = requests.Session()
+
+    @property
+    def network(self) -> Network:
+        return super().network
 
     def req(self, query: str, params: dict):
         """Send request, return response."""

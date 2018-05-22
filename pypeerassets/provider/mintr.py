@@ -2,6 +2,7 @@ import json
 from urllib.request import Request, urlopen
 
 from pypeerassets.exceptions import UnsupportedNetwork
+from pypeerassets.network.network import Network
 from pypeerassets.provider.common import Provider
 
 
@@ -12,11 +13,14 @@ class Mintr(Provider):
     output to match original RPC response.
     '''
 
-    def __init__(self, network="peercoin"):
-
-        self.net = self._netname(network)['long']
-        if self.net != "peercoin":
+    def __init__(self, network: Network) -> None:
+        super().__init__(network)
+        if self.network.name != "peercoin":
             raise UnsupportedNetwork("Mintr only supports the peercoin mainnet.")
+
+    @property
+    def network(self) -> Network:
+        return super().network
 
     def get(self, query):
 

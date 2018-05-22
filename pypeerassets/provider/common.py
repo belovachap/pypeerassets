@@ -1,34 +1,21 @@
 '''Common provider class with basic features.'''
 
 from abc import ABC, abstractmethod
-from pypeerassets.exceptions import UnsupportedNetwork
-from pypeerassets.pa_constants import PAParams, param_query
-from pypeerassets.networks import NetworkParams, net_query
 from decimal import Decimal
 import urllib.request
+
+from pypeerassets.exceptions import UnsupportedNetwork
+from pypeerassets.network.network import Network
+from pypeerassets.pa_constants import PAParams, param_query
 
 
 class Provider(ABC):
 
-    @staticmethod
-    def _netname(name: str) -> dict:
-        '''resolute network name,
-        required because some providers use shortnames and other use longnames.'''
+    @abstractmethod
+    def __init__(self, network: Network):
+        '''Initialize a Provider.'''
 
-        try:
-            long = net_query(name).network_name
-            short = net_query(name).network_shortname
-        except AttributeError:
-            raise UnsupportedNetwork('''This blockchain network is not supported by the pypeerassets, check networks.py for list of supported networks.''')
-
-        return {'long': long,
-                'short': short}
-
-    @property
-    def network(self) -> str:
-        '''return network full name'''
-
-        return self._netname(self.net)['long']
+        self._network = network
 
     @property
     def pa_parameters(self) -> PAParams:
@@ -37,19 +24,11 @@ class Provider(ABC):
         return param_query(self.network)
 
     @property
-    def network_properties(self) -> NetworkParams:
-        '''network parameters [min_fee, denomination, ...]'''
+    @abstractmethod
+    def network(self) -> Network:
+        '''Return the Network object the Provider is using.'''
 
-        return net_query(self.network)
-
-    @property
-    def is_testnet(self) -> bool:
-        """testnet or not?"""
-
-        if "testnet" in self.network:
-            return True
-        else:
-            return False
+        return self._network
 
     @classmethod
     def sendrawtransaction(cls, rawtxn: str) -> dict:
