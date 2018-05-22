@@ -18,3 +18,13 @@ def test_network_parameters():
     assert peercoin.tx_timestamp == True
     assert peercoin.denomination == Decimal('1e6')
     assert peercoin.is_testnet == False
+
+def test_is_valid_address():
+    "Check that the network can recognize valid addresses."
+    peercoin = Peercoin()
+    assert peercoin.is_valid_address("PAdonateFczhZuKLkKHozrcyMJW7Y6TKvw") is True
+    assert peercoin.is_valid_address("p92W3t7YkKfQEPDb7cG9jQ6iMh7cpKLvwK") is True
+
+    assert peercoin.is_valid_address("1BFQfjM29kubskmaAsPjPCfHYphYvKA7Pj") is False
+    assert peercoin.is_valid_address("2NFNPUYRpDXf3YXEuVT6AdMesX4kyeyDjtp") is False
+    assert peercoin.is_valid_address("mj46gUeZgeD9ufU7Fvz2dWqaX6Nswtbpba") is False

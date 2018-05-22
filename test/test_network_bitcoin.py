@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+import pytest
+
 from pypeerassets.network.bitcoin import Bitcoin
 
 
@@ -18,3 +20,11 @@ def test_network_parameters():
     assert bitcoin.tx_timestamp == False
     assert bitcoin.denomination == Decimal('1e8')
     assert bitcoin.is_testnet == False
+
+def test_is_valid_address():
+    """Check that the network can recognize valid addresses. NOTE: it's not
+    currenlty implemented :(
+    """
+    bitcoin = Bitcoin()
+    with pytest.raises(NotImplementedError):
+        bitcoin.is_valid_address("1BFQfjM29kubskmaAsPjPCfHYphYvKA7Pj")

@@ -1,5 +1,7 @@
 from decimal import Decimal
 
+from btcpy.structs.address import Address
+
 from pypeerassets.network.network import Network
 
 
@@ -54,4 +56,4 @@ class PeercoinTestnet(Network):
         return True
 
     def is_valid_address(self, address):
-        raise NotImplementedError
+        return Address.is_valid(address)
