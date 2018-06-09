@@ -99,12 +99,12 @@ def deck_spawn(provider: Provider, deck: Deck, inputs: dict,
     change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee)
 
     txouts = [
-        tx_output(value=pa_params.P2TH_fee, n=0, script=p2pkh_script(p2th_addr)),  # p2th
-        tx_output(value=Decimal(0), n=1, script=nulldata_script(deck.metainfo_to_protobuf)),  # op_return
-        tx_output(value=change_sum, n=2, script=p2pkh_script(change_address))  # change
-              ]
+        tx_output(pa_params.P2TH_fee, 0, p2pkh_script(p2th_addr, network_params), network_params),  # p2th
+        tx_output(Decimal(0), 1, nulldata_script(deck.metainfo_to_protobuf), network_params),  # op_return
+        tx_output(change_sum, 2, p2pkh_script(change_address, network_params), network_params),  # change
+    ]
 
-    unsigned_tx = make_raw_transaction(inputs['utxos'], txouts)
+    unsigned_tx = make_raw_transaction(inputs['utxos'], txouts, network_params)
     return unsigned_tx
 
 
@@ -208,21 +208,21 @@ def card_transfer(provider: Provider, card: CardTransfer, inputs: dict,
         raise Exception("card.deck_p2th required for tx_output")
 
     outs = [
-        tx_output(value=pa_params.P2TH_fee, n=0, script=p2pkh_script(card.deck_p2th)),  # deck p2th
-        tx_output(value=Decimal(0), n=1, script=nulldata_script(card.metainfo_to_protobuf))  # op_return
+        tx_output(pa_params.P2TH_fee, 0, p2pkh_script(card.deck_p2th, network_params), network_params),  # deck p2th
+        tx_output(Decimal(0), 1, nulldata_script(card.metainfo_to_protobuf), network_params),  # op_return
     ]
 
     for addr, index in zip(card.receiver, range(len(card.receiver))):
         outs.append(   # TxOut for each receiver, index + 2 because we have two outs already
-            tx_output(value=Decimal(0), n=index+2, script=p2pkh_script(addr))
+            tx_output(Decimal(0), index+2, p2pkh_script(addr, network_params), network_params)
         )
 
     #  first round of txn making is done by presuming minimal fee
     change_sum = Decimal(inputs['total'] - network_params.min_tx_fee - pa_params.P2TH_fee)
 
     outs.append(
-        tx_output(value=change_sum, n=len(outs)+1, script=p2pkh_script(change_address))
-        )
+        tx_output(change_sum, len(outs)+1, p2pkh_script(change_address, network_params), network_params)
+    )
 
-    unsigned_tx = make_raw_transaction(inputs['utxos'], outs)
+    unsigned_tx = make_raw_transaction(inputs['utxos'], outs, network_params)
     return unsigned_tx

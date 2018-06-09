@@ -1,10 +1,11 @@
-
 from hashlib import sha256
 from os import urandom
+
 from btcpy.structs.crypto import PublicKey, PrivateKey
 from btcpy.structs.transaction import MutableTransaction, TxOut
 from btcpy.structs.sig import P2pkhSolver
-from btcpy.setup import setup
+
+from pypeerassets.networks import net_query
 
 
 class Kutil:
@@ -23,14 +24,6 @@ class Kutil:
 
         self.network = network
 
-        try:
-            if self.network.startswith('t') or self.network.endswith('-testnet'):
-                setup('testnet')
-            else:
-                setup('mainnet')
-        except ValueError:
-            pass
-
         if privkey is not None:
             self._private_key = PrivateKey(privkey)
 
@@ -38,7 +31,7 @@ class Kutil:
             self._private_key = PrivateKey(sha256(from_string.encode()).digest())
 
         if from_wif is not None:
-            self._private_key = PrivateKey.from_wif(from_wif)
+            self._private_key = PrivateKey.from_wif(from_wif, self.btcpy_constants)
 
         if not privkey:
             if from_string == from_wif is None:  # generate a new privkey
@@ -49,10 +42,13 @@ class Kutil:
         self.pubkey = str(self._public_key)
 
     @property
+    def btcpy_constants(self):
+        return net_query(self.network).btcpy_constants
+
+    @property
     def address(self) -> str:
         '''generate an address from pubkey'''
-
-        return str(self._public_key.to_address())
+        return str(self._public_key.to_address(self.btcpy_constants))
 
     @property
     def wif(self) -> str:

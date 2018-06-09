@@ -4,6 +4,7 @@ from decimal import Decimal, getcontext
 from math import ceil
 from time import time
 
+from btcpy.constants import Constants
 from btcpy.structs.address import Address
 from btcpy.structs.script import (
     NulldataScript,
@@ -12,13 +13,16 @@ from btcpy.structs.script import (
     StackData,
 )
 from btcpy.structs.transaction import (
+    BitcoinTransaction,
     Locktime,
+    PeercoinTransaction,
     Transaction,
     TxIn,
     TxOut,
 )
 
 from pypeerassets.kutil import Kutil
+from pypeerassets.networks import NetworkParams
 from pypeerassets.provider import Provider
 
 
@@ -40,32 +44,49 @@ def nulldata_script(data: bytes) -> NulldataScript:
     return NulldataScript(stack)
 
 
-def p2pkh_script(address: str) -> P2pkhScript:
+def p2pkh_script(address: str, network_params: NetworkParams) -> P2pkhScript:
     '''create pay-to-key-hash (P2PKH) script'''
 
-    addr = Address.from_string(address)
+    addr = Address.from_string(address, network_params.btcpy_constants)
 
     return P2pkhScript(addr)
 
 
-def tx_output(value: Decimal, n: int, script: ScriptSig) -> TxOut:
+def tx_output(value: Decimal, n: int, script: ScriptSig, network_params: NetworkParams) -> TxOut:
     '''create TxOut object'''
 
-    return TxOut(value=int(value * 1000000), n=n, script_pubkey=script)
+    tx_out_cls = network_params.btcpy_tx_out
+    return tx_out_cls(int(value * 1000000), n, script, network_params.btcpy_constants)
 
 
 def make_raw_transaction(
     inputs: list,
     outputs: list,
+    network_params: NetworkParams,
     locktime: Locktime=Locktime(0),
     timestamp: int=int(time()),
     version: int=1,
 ) -> Transaction:
     '''create raw transaction'''
 
-    return Transaction(version=version, timestamp=timestamp,
-                       ins=inputs, outs=outputs,
-                       locktime=locktime)
+    tx_cls = network_params.btcpy_tx
+    if tx_cls is PeercoinTransaction:
+        return tx_cls(
+            version,
+            timestamp,
+            inputs,
+            outputs,
+            locktime,
+            network_params.btcpy_constants,
+        )
+    else:
+        return tx_cls(
+            version,
+            inputs,
+            outputs,
+            locktime,
+            network_params.btcpy_constants,
+        )
 
 
 def find_parent_outputs(provider: Provider, utxo: TxIn) -> TxOut:

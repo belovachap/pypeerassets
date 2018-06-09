@@ -117,8 +117,9 @@ class Provider(ABC):
         network (i.e. strict=False). When btcpy can support multiple networks at
         runtime we can be more precise (i.e. strict=True) ;)
         """
+        constants = self.network_properties.btcpy_constants
         try:
-            Address.from_string(address, strict=False)
+            Address.from_string(address, constants)
         except ValueError:
             return False
 
